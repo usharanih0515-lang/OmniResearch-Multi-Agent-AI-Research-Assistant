@@ -25,7 +25,14 @@ Without configuration, submitting a question intentionally shows that no researc
 
 ## Configure an approved research endpoint
 
-Copy `.env.example` to `.env` only for local use and set `RESEARCH_API_URL` and `RESEARCH_API_KEY` in your terminal environment. The endpoint must accept:
+Use `.env.example` as a reference, then set `RESEARCH_API_URL` and `RESEARCH_API_KEY` in the PowerShell session before starting the app. The app intentionally does not load `.env` files automatically. For example:
+
+```powershell
+$env:RESEARCH_API_URL = "https://approved.example/research"
+$env:RESEARCH_API_KEY = "replace-me-locally"
+```
+
+The endpoint must accept:
 
 ```json
 {"query":"your question"}
