@@ -1,0 +1,16 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #172033; background: #f5f7fb; }
+body { margin: 0; }
+.container { max-width: 760px; margin: 0 auto; padding: 3rem 1.25rem; }
+.eyebrow { color: #5267d9; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+h1 { margin-bottom: .5rem; font-size: 2.5rem; }
+.intro { color: #536078; }
+.search-form, .results, .message { margin-top: 2rem; padding: 1.25rem; border-radius: 12px; background: white; box-shadow: 0 5px 20px #17203312; }
+label { display: block; font-weight: 700; margin-bottom: .5rem; }
+textarea { width: 100%; box-sizing: border-box; border: 1px solid #cad1df; border-radius: 8px; padding: .75rem; font: inherit; resize: vertical; }
+button { margin-top: 1rem; border: 0; border-radius: 8px; padding: .75rem 1.25rem; color: white; background: #5267d9; font-weight: 700; cursor: pointer; }
+.error { color: #8a1c28; background: #fff0f1; }
+.summary { line-height: 1.6; }
+.sources { padding-left: 1.25rem; }
+.sources li { margin: 1rem 0; }
+.sources a { color: #4055c5; font-weight: 700; }
+.sources p { margin: .35rem 0 0; color: #536078; }

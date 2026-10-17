@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniResearch</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">OmniRush Buildathon</p>
+      <h1>OmniResearch</h1>
+      <p class="intro">Ask a question and review findings from a configured research integration.</p>
+    </header>
+    <form method="post" action="{{ url_for('research') }}" class="search-form">
+      <label for="question">Research question</label>
+      <textarea id="question" name="question" maxlength="500" rows="4" required>{{ question }}</textarea>
+      <button type="submit">Research</button>
+    </form>
+    {% if error %}<div class="message error" role="alert">{{ error }}</div>{% endif %}
+    {% if result %}
+      <section class="results" aria-labelledby="results-heading">
+        <h2 id="results-heading">Findings</h2>
+        <p class="summary">{{ result.summary }}</p>
+        <h2>Sources</h2>
+        <ul class="sources">
+          {% for source in result.sources %}
+            <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.snippet %}<p>{{ source.snippet }}</p>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>
