@@ -9,8 +9,11 @@ def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_mapping(
         MAX_QUESTION_LENGTH=500,
+        RESEARCH_PROVIDER=os.getenv("RESEARCH_PROVIDER", ""),
         RESEARCH_API_URL=os.getenv("RESEARCH_API_URL", ""),
         RESEARCH_API_KEY=os.getenv("RESEARCH_API_KEY", ""),
+        TAVILY_API_KEY=os.getenv("TAVILY_API_KEY", ""),
+        TAVILY_API_URL=os.getenv("TAVILY_API_URL", ""),
     )
     if test_config:
         app.config.update(test_config)
@@ -34,8 +37,9 @@ def create_app(test_config=None):
             ), 400
 
         provider = create_provider(
-            app.config.get("RESEARCH_API_URL", ""),
-            app.config.get("RESEARCH_API_KEY", ""),
+            app.config.get("RESEARCH_PROVIDER", ""),
+            app.config.get("TAVILY_API_URL") or app.config.get("RESEARCH_API_URL", ""),
+            app.config.get("TAVILY_API_KEY") or app.config.get("RESEARCH_API_KEY", ""),
         )
         try:
             result = provider.research(question)

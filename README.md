@@ -2,7 +2,9 @@
 
 OmniResearch is a small Flask web app for asking a research question, displaying a grounded summary, and listing source links returned by a configured research integration.
 
-The repository does **not** include fake sources or a hidden demo provider. In the current OmniRush environment, no web-search integration is exposed directly to this workspace, so the default behavior is a clear setup message. The app can call an approved JSON endpoint when you configure one.
+The repository does **not** include fake sources or a hidden demo provider. The app includes a real adapter for [Tavily Search](https://docs.tavily.com/), but this workspace does not currently have a Tavily key or a direct OmniRush search extension connected. Until you configure Tavily locally, the app shows a clear setup message.
+
+The OmniRush extension inventory was checked before implementation: it exposes Google Workspace and image-generation actions, but no search/research action. Therefore this app uses the official Tavily API only when you explicitly configure it, and does not claim that an OmniRush-native search integration is available.
 
 ## Requirements
 
@@ -23,13 +25,26 @@ Open http://127.0.0.1:5000 in a browser.
 
 Without configuration, submitting a question intentionally shows that no research integration is configured. This is safer than inventing an answer.
 
-## Configure an approved research endpoint
+## Configure Tavily Search (real provider)
 
-Use `.env.example` as a reference, then set `RESEARCH_API_URL` and `RESEARCH_API_KEY` in the PowerShell session before starting the app. The app intentionally does not load `.env` files automatically. For example:
+Create a Tavily account and obtain an API key from its official dashboard. Then set these variables in the PowerShell session before starting the app. The app intentionally does not load `.env` files automatically:
 
 ```powershell
+$env:RESEARCH_PROVIDER = "tavily"
+$env:TAVILY_API_KEY = "your-local-tavily-key"
+$env:TAVILY_API_URL = "https://api.tavily.com/search"
+```
+
+The key is sent only to Tavily over HTTPS and is never logged by the app. Do not commit it.
+
+## Configure an approved JSON endpoint instead
+
+If your organization provides an approved research service, set:
+
+```powershell
+$env:RESEARCH_PROVIDER = "http"
 $env:RESEARCH_API_URL = "https://approved.example/research"
-$env:RESEARCH_API_KEY = "replace-me-locally"
+$env:RESEARCH_API_KEY = "your-local-key"
 ```
 
 The endpoint must accept:
@@ -44,7 +59,7 @@ and return:
 {"summary":"grounded text", "sources":[{"title":"Source title", "url":"https://...", "snippet":"optional evidence"}]}
 ```
 
-The app only displays `http://` and `https://` source URLs returned by that endpoint. Never commit `.env` or API keys.
+The app only displays `http://` and `https://` source URLs returned by the provider. It creates an evidence summary only from returned source snippets/content; it does not invent unsupported claims.
 
 ## Test
 
@@ -52,11 +67,13 @@ The app only displays `http://` and `https://` source URLs returned by that endp
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Tests run offline and cover the page, validation, unavailable-provider behavior, and source URL filtering.
+Tests run offline with mocked provider responses. They cover successful search, missing configuration, authentication failures, rate limits, timeouts, network failures, malformed responses, invalid URLs, and evidence-only summaries.
 
 ## Docker
 
 ```powershell
+docker build -t omniresearch .
+docker run --rm -p 5000:5000 -e RESEARCH_PROVIDER=tavily -e TAVILY_API_KEY=your-local-key omniresearch
 ```
 
 The image starts the same safe, unconfigured state unless you pass approved configuration with `-e`; do not put secrets in the image or repository.
