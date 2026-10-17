@@ -36,11 +36,14 @@ def create_app(test_config=None):
                 error=f"Keep the question under {app.config['MAX_QUESTION_LENGTH']} characters.",
             ), 400
 
-        provider = create_provider(
-            app.config.get("RESEARCH_PROVIDER", ""),
-            app.config.get("TAVILY_API_URL") or app.config.get("RESEARCH_API_URL", ""),
-            app.config.get("TAVILY_API_KEY") or app.config.get("RESEARCH_API_KEY", ""),
-        )
+        provider_name = app.config.get("RESEARCH_PROVIDER", "")
+        if provider_name == "tavily":
+            provider_url = app.config.get("TAVILY_API_URL", "")
+            provider_key = app.config.get("TAVILY_API_KEY", "")
+        else:
+            provider_url = app.config.get("RESEARCH_API_URL", "")
+            provider_key = app.config.get("RESEARCH_API_KEY", "")
+        provider = create_provider(provider_name, provider_url, provider_key)
         try:
             result = provider.research(question)
         except ResearchError as exc:
