@@ -1,11 +1,42 @@
 import os
+from pathlib import Path
 
 from flask import Flask, render_template, request
 
 from .research import ResearchError, create_provider
 
 
+_LOCAL_ENV_KEYS = {
+    "RESEARCH_PROVIDER",
+    "RESEARCH_API_URL",
+    "RESEARCH_API_KEY",
+    "TAVILY_API_KEY",
+    "TAVILY_API_URL",
+}
+
+
+def _load_local_env(path: str = ".env") -> None:
+    """Load supported local settings without overriding real environment variables."""
+    env_path = Path(path)
+    if not env_path.is_file():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = (part.strip() for part in line.split("=", 1))
+        if name.startswith("export "):
+            name = name[7:].strip()
+        if name not in _LOCAL_ENV_KEYS or name in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ[name] = value
+
+
 def create_app(test_config=None):
+    _load_local_env()
     app = Flask(__name__)
     app.config.from_mapping(
         MAX_QUESTION_LENGTH=500,

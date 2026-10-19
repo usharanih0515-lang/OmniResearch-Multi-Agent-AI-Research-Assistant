@@ -27,7 +27,7 @@ Without configuration, submitting a question intentionally shows that no researc
 
 ## Configure Tavily Search (real provider)
 
-Create a Tavily account and obtain an API key from its official dashboard. Then set these variables in the PowerShell session before starting the app. The app intentionally does not load `.env` files automatically:
+Create a Tavily account and obtain an API key from its official dashboard. Then either set these variables in the PowerShell session or copy `.env.example` to a local `.env` file. The app loads only the supported provider settings from `.env` when it starts, and never overrides variables already set in the environment:
 
 ```powershell
 $env:RESEARCH_PROVIDER = "tavily"
@@ -36,6 +36,15 @@ $env:TAVILY_API_URL = "https://api.tavily.com/search"
 ```
 
 The key is sent only to Tavily over HTTPS and is never logged by the app. Do not commit it.
+
+To use a local `.env` file on Windows without placing the key in source code:
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Set `TAVILY_API_KEY` in that file, save it, and restart `app.py`. `.env` is ignored by Git; never paste its contents into chat or commit it.
 
 ## Configure an approved JSON endpoint instead
 

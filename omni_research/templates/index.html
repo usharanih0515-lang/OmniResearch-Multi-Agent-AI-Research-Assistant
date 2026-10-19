@@ -25,7 +25,10 @@
         <div class="summary-section">
           <h3>Key takeaways</h3>
           <ul>
-            {% for takeaway in result.summary.key_takeaways %}<li>{{ takeaway }}</li>{% endfor %}
+            {% for takeaway in result.summary.key_takeaways %}
+              <li><span class="evidence-type">{{ takeaway.evidence_type }}</span> {{ takeaway.text }} <a href="{{ takeaway.source.url }}" rel="noreferrer noopener">[{{ takeaway.source.title }}]</a></li>
+            {% endfor %}
+            {% if not result.summary.key_takeaways %}<li>Insufficient neutral evidence was returned for a factual takeaway.</li>{% endif %}
           </ul>
         </div>
         <div class="summary-section">
@@ -33,7 +36,7 @@
           {% if result.summary.supporting_evidence %}
             <ul class="evidence-list">
               {% for source in result.summary.supporting_evidence %}
-                <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a><p>{{ source.snippet }}</p></li>
+                <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}<p>{{ source.excerpt }}</p></li>
               {% endfor %}
             </ul>
           {% else %}<p>No source snippets were returned for supporting evidence.</p>{% endif %}
@@ -47,13 +50,15 @@
         <h2>Sources</h2>
         <ul class="sources">
           {% for source in result.sources %}
-            <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.snippet %}<p>{{ source.snippet }}</p>{% endif %}</li>
+            <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}</li>
           {% endfor %}
         </ul>
         <h2>News</h2>
         {% if result.news %}
           <ul class="sources">
-            {% for source in result.news %}<li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.snippet %}<p>{{ source.snippet }}</p>{% endif %}</li>{% endfor %}
+            {% for source in result.news %}
+              <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}{% if source.snippet %}<p>{{ source.excerpt }}</p>{% endif %}</li>
+            {% endfor %}
           </ul>
         {% else %}<p class="empty-state">No news results were returned for this question.</p>{% endif %}
       </section>

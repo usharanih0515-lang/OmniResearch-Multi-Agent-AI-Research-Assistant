@@ -1,6 +1,7 @@
 import json
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
@@ -15,6 +16,22 @@ class Source:
     title: str
     url: str
     snippet: str
+    published_date: str | None = None
+
+    @property
+    def excerpt(self) -> str:
+        return _shorten(self.snippet, 220)
+
+    @property
+    def date_label(self) -> str | None:
+        if not self.published_date:
+            return None
+        try:
+            published = datetime.fromisoformat(self.published_date.replace("Z", "+00:00")).date()
+        except ValueError:
+            return None
+        age_days = (date.today() - published).days
+        return "Older background" if age_days > 365 else "Recent source"
 
 
 @dataclass(frozen=True)
@@ -27,9 +44,16 @@ class ResearchResult:
 
 @dataclass(frozen=True)
 class EvidenceSummary:
-    key_takeaways: list[str]
+    key_takeaways: list["Takeaway"]
     supporting_evidence: list[Source]
     limitations: list[str]
+
+
+@dataclass(frozen=True)
+class Takeaway:
+    text: str
+    source: Source
+    evidence_type: str
 
 
 DEFAULT_TAVILY_URL = "https://api.tavily.com/search"
@@ -102,6 +126,7 @@ class TavilySearchProvider:
                 "title": item.get("title"),
                 "url": item.get("url"),
                 "snippet": item.get("content", item.get("snippet", "")),
+                "published_date": item.get("published_date"),
             }
             for item in results
             if isinstance(item, dict)
@@ -150,9 +175,11 @@ def _parse_sources(raw_sources: list[object]) -> list[Source]:
         title = _clean_text(item.get("title", ""))
         url = str(item.get("url", "")).strip()
         snippet = _clean_text(item.get("snippet", item.get("content", "")))
+        published_date = item.get("published_date")
+        published_date = str(published_date).strip() if published_date else None
         title_key = title.casefold()
         if title and _is_http_url(url) and url not in seen_urls and title_key not in seen_titles:
-            sources.append(Source(title=title, url=url, snippet=snippet))
+            sources.append(Source(title=title, url=url, snippet=snippet, published_date=published_date))
             seen_urls.add(url)
             seen_titles.add(title_key)
     return sources
@@ -165,20 +192,43 @@ def _is_http_url(value: str) -> bool:
 
 def summarize_sources(sources: list[Source], news: list[Source] | None = None) -> EvidenceSummary:
     news = news or []
-    snippets = []
-    for source in sources:
-        if source.snippet and source.snippet.casefold() not in {item.casefold() for item in snippets}:
-            snippets.append(source.snippet)
-
-    key_takeaways = [_shorten(snippet) for snippet in snippets[:3]]
-    supporting_evidence = [source for source in sources if source.snippet][:5]
+    key_takeaways = []
+    seen_takeaways = set()
     limitations = []
+    for source in sources:
+        candidates = sorted(
+            enumerate(_sentences(source.snippet)),
+            key=lambda item: (-_evidence_score(item[1], item[0]), item[0]),
+        )
+        for _, sentence in candidates:
+            sentence_key = sentence.casefold()
+            if not sentence or sentence_key in seen_takeaways:
+                continue
+            if _is_promotional(sentence):
+                limitations.append(
+                    f"Promotional wording from {source.title} was not presented as a factual takeaway."
+                )
+                continue
+            key_takeaways.append(
+                Takeaway(
+                    text=_shorten(sentence),
+                    source=source,
+                    evidence_type=_evidence_type(sentence),
+                )
+            )
+            seen_takeaways.add(sentence_key)
+            if len(key_takeaways) == 3:
+                break
+        if len(key_takeaways) == 3:
+            break
+
+    supporting_evidence = [source for source in sources if source.snippet][:5]
     if len(sources) > len(supporting_evidence):
         limitations.append("Some returned sources were not included in the evidence list to keep the summary concise.")
     if any(not source.snippet for source in sources):
         limitations.append("Some returned sources did not include a snippet, so they are shown as links only.")
     if not key_takeaways:
-        limitations.append("The provider returned no source snippets, so no evidence-based takeaway is available.")
+        limitations.append("The retrieved content does not provide enough neutral evidence for a factual takeaway.")
     if not news:
         limitations.append("No news results were returned by the provider.")
     return EvidenceSummary(
@@ -190,6 +240,48 @@ def summarize_sources(sources: list[Source], news: list[Source] | None = None) -
 
 def _clean_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value).strip())
+
+
+def _sentences(value: str) -> list[str]:
+    return [sentence.strip(" \t\r\n") for sentence in re.split(r"(?<=[.!?])\s+", value) if sentence.strip()]
+
+
+def _is_promotional(value: str) -> bool:
+    promotional_terms = (
+        "revolution", "game-changing", "game changing", "breakthrough", "unprecedented",
+        "transform", "world-leading", "best-in-class", "miracle", "guaranteed",
+        "in conclusion", "broader implications", "should excite", "we explore",
+        "this article", "in this review",
+    )
+    lowered = value.casefold()
+    return any(term in lowered for term in promotional_terms)
+
+
+def _evidence_type(value: str) -> str:
+    lowered = value.casefold()
+    if any(term in lowered for term in ("mouse", "mice", "animal study", "preclinical", "in vivo")):
+        return "Animal or preclinical evidence"
+    if any(term in lowered for term in ("clinical trial", "randomized", "participants", "patients were enrolled")):
+        return "Clinical trial evidence"
+    if any(term in lowered for term in ("in vitro", "laboratory", "early-stage", "early stage")):
+        return "Early-stage research"
+    if any(term in lowered for term in ("approved treatment", "standard treatment", "standard of care", "clinical practice")):
+        return "Established treatment information"
+    return "Provider-reported evidence"
+
+
+def _evidence_score(value: str, position: int) -> int:
+    lowered = value.casefold()
+    evidence_terms = (
+        "study", "trial", "participants", "patients", "results", "found", "observed",
+        "reported", "associated", "measured", "treatment", "evidence", "data",
+    )
+    score = sum(term in lowered for term in evidence_terms) * 3
+    if _is_promotional(value):
+        score -= 20
+    if position == 0:
+        score -= 2
+    return score
 
 
 def _shorten(value: str, limit: int = 240) -> str:
