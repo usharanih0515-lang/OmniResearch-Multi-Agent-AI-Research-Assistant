@@ -22,13 +22,40 @@
     {% if result %}
       <section class="results" aria-labelledby="results-heading">
         <h2 id="results-heading">Findings</h2>
-        <p class="summary">{{ result.summary }}</p>
+        <div class="summary-section">
+          <h3>Key takeaways</h3>
+          <ul>
+            {% for takeaway in result.summary.key_takeaways %}<li>{{ takeaway }}</li>{% endfor %}
+          </ul>
+        </div>
+        <div class="summary-section">
+          <h3>Supporting evidence</h3>
+          {% if result.summary.supporting_evidence %}
+            <ul class="evidence-list">
+              {% for source in result.summary.supporting_evidence %}
+                <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a><p>{{ source.snippet }}</p></li>
+              {% endfor %}
+            </ul>
+          {% else %}<p>No source snippets were returned for supporting evidence.</p>{% endif %}
+        </div>
+        <div class="summary-section">
+          <h3>Limitations</h3>
+          <ul>
+            {% for limitation in result.summary.limitations %}<li>{{ limitation }}</li>{% endfor %}
+          </ul>
+        </div>
         <h2>Sources</h2>
         <ul class="sources">
           {% for source in result.sources %}
             <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.snippet %}<p>{{ source.snippet }}</p>{% endif %}</li>
           {% endfor %}
         </ul>
+        <h2>News</h2>
+        {% if result.news %}
+          <ul class="sources">
+            {% for source in result.news %}<li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.snippet %}<p>{{ source.snippet }}</p>{% endif %}</li>{% endfor %}
+          </ul>
+        {% else %}<p class="empty-state">No news results were returned for this question.</p>{% endif %}
       </section>
     {% endif %}
   </main>

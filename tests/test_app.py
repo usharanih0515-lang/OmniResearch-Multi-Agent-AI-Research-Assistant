@@ -60,6 +60,7 @@ def test_tavily_success_is_rendered_from_provider_response():
     assert b"Renewable energy overview" in response.data
     assert b"https://example.com/energy" in response.data
     assert b"Renewable energy comes from replenished natural processes." in response.data
+    assert b"No news results were returned" in response.data
 
 
 def test_provider_timeout_is_user_safe():
@@ -105,7 +106,48 @@ def test_invalid_urls_are_not_returned_as_sources():
         {"title": "No host", "url": "https:///missing-host", "snippet": "Ignore."},
     ]})
     assert [(source.title, source.url) for source in result.sources] == [("Valid", "https://example.com")]
-    assert result.summary == "Evidence summary: Evidence."
+    assert result.summary.key_takeaways == ["Evidence."]
+    assert result.summary.supporting_evidence[0].title == "Valid"
+
+
+def test_summary_is_concise_and_sources_are_deduplicated():
+    result = parse_response("Question", {"sources": [
+        {"title": "First", "url": "https://example.com/a", "snippet": "A useful finding."},
+        {"title": "First duplicate", "url": "https://example.com/a", "snippet": "A useful finding."},
+        {"title": "Same evidence", "url": "https://example.com/b", "snippet": "A useful finding."},
+        {"title": "Second", "url": "https://example.com/c", "snippet": "A different finding."},
+    ]})
+    assert [source.title for source in result.sources] == ["First", "Same evidence", "Second"]
+    assert result.summary.key_takeaways == ["A useful finding.", "A different finding."]
+    assert len(result.summary.key_takeaways) <= 3
+
+
+def test_missing_snippets_are_linked_but_not_presented_as_evidence():
+    result = parse_response("Question", {"sources": [
+        {"title": "No snippet", "url": "https://example.com/no-snippet"},
+        {"title": "With snippet", "url": "https://example.com/with-snippet", "snippet": "Observed evidence."},
+    ]})
+    assert [source.title for source in result.sources] == ["No snippet", "With snippet"]
+    assert [source.title for source in result.summary.supporting_evidence] == ["With snippet"]
+    assert any("did not include a snippet" in item for item in result.summary.limitations)
+
+
+def test_empty_news_results_are_honest_and_do_not_create_sources():
+    result = parse_response("Question", {
+        "sources": [{"title": "Main source", "url": "https://example.com", "snippet": "Evidence."}],
+        "news": [],
+    })
+    assert result.news == []
+    assert any("No news results" in item for item in result.summary.limitations)
+
+
+def test_news_results_are_kept_separate_from_main_sources():
+    result = parse_response("Question", {
+        "sources": [{"title": "Main source", "url": "https://example.com/main", "snippet": "Evidence."}],
+        "news": [{"title": "News item", "url": "https://example.com/news", "snippet": "News evidence."}],
+    })
+    assert [source.title for source in result.sources] == ["Main source"]
+    assert [source.title for source in result.news] == ["News item"]
 
 
 def test_malformed_source_data_fails_loudly():

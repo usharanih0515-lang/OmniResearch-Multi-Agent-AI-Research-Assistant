@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -19,8 +20,16 @@ class Source:
 @dataclass(frozen=True)
 class ResearchResult:
     question: str
-    summary: str
+    summary: "EvidenceSummary"
     sources: list[Source]
+    news: list[Source]
+
+
+@dataclass(frozen=True)
+class EvidenceSummary:
+    key_takeaways: list[str]
+    supporting_evidence: list[Source]
+    limitations: list[str]
 
 
 DEFAULT_TAVILY_URL = "https://api.tavily.com/search"
@@ -97,7 +106,7 @@ class TavilySearchProvider:
             for item in results
             if isinstance(item, dict)
         ]
-        return parse_response(question, {"sources": sources})
+        return parse_response(question, {"sources": sources, "news": payload.get("news", [])})
 
 
 def _http_error(error: HTTPError) -> ResearchError:
@@ -116,20 +125,37 @@ def parse_response(question: str, payload: dict) -> ResearchResult:
     raw_sources = payload.get("sources")
     if not isinstance(raw_sources, list):
         raise ResearchError("The research integration returned malformed source data.")
-    sources = []
-    for item in raw_sources:
-        if not isinstance(item, dict):
-            continue
-        title, url = str(item.get("title", "")).strip(), str(item.get("url", "")).strip()
-        snippet = str(item.get("snippet", "")).strip()
-        if title and _is_http_url(url):
-            sources.append(Source(title=title, url=url, snippet=snippet))
+    sources = _parse_sources(raw_sources)
 
     if not sources:
         raise ResearchError("The research integration returned no valid source links.")
 
-    summary = summarize_sources(sources)
-    return ResearchResult(question=question, summary=summary, sources=sources)
+    raw_news = payload.get("news", [])
+    if not isinstance(raw_news, list):
+        raise ResearchError("The research integration returned malformed news data.")
+    news = _parse_sources(raw_news)
+    news_urls = {source.url for source in news}
+    sources = [source for source in sources if source.url not in news_urls]
+    summary = summarize_sources(sources, news)
+    return ResearchResult(question=question, summary=summary, sources=sources, news=news)
+
+
+def _parse_sources(raw_sources: list[object]) -> list[Source]:
+    sources = []
+    seen_urls = set()
+    seen_titles = set()
+    for item in raw_sources:
+        if not isinstance(item, dict):
+            continue
+        title = _clean_text(item.get("title", ""))
+        url = str(item.get("url", "")).strip()
+        snippet = _clean_text(item.get("snippet", item.get("content", "")))
+        title_key = title.casefold()
+        if title and _is_http_url(url) and url not in seen_urls and title_key not in seen_titles:
+            sources.append(Source(title=title, url=url, snippet=snippet))
+            seen_urls.add(url)
+            seen_titles.add(title_key)
+    return sources
 
 
 def _is_http_url(value: str) -> bool:
@@ -137,14 +163,39 @@ def _is_http_url(value: str) -> bool:
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def summarize_sources(sources: list[Source]) -> str:
-    evidence = []
+def summarize_sources(sources: list[Source], news: list[Source] | None = None) -> EvidenceSummary:
+    news = news or []
+    snippets = []
     for source in sources:
-        if source.snippet and source.snippet not in evidence:
-            evidence.append(source.snippet)
-    if not evidence:
-        return "No evidence summary is available because the provider returned no source snippets."
-    return "Evidence summary: " + " ".join(evidence)
+        if source.snippet and source.snippet.casefold() not in {item.casefold() for item in snippets}:
+            snippets.append(source.snippet)
+
+    key_takeaways = [_shorten(snippet) for snippet in snippets[:3]]
+    supporting_evidence = [source for source in sources if source.snippet][:5]
+    limitations = []
+    if len(sources) > len(supporting_evidence):
+        limitations.append("Some returned sources were not included in the evidence list to keep the summary concise.")
+    if any(not source.snippet for source in sources):
+        limitations.append("Some returned sources did not include a snippet, so they are shown as links only.")
+    if not key_takeaways:
+        limitations.append("The provider returned no source snippets, so no evidence-based takeaway is available.")
+    if not news:
+        limitations.append("No news results were returned by the provider.")
+    return EvidenceSummary(
+        key_takeaways=key_takeaways,
+        supporting_evidence=supporting_evidence,
+        limitations=limitations,
+    )
+
+
+def _clean_text(value: object) -> str:
+    return re.sub(r"\s+", " ", str(value).strip())
+
+
+def _shorten(value: str, limit: int = 240) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1].rsplit(" ", 1)[0] + "…"
 
 
 def create_provider(provider: str, url: str, api_key: str):
