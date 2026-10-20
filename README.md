@@ -2,16 +2,30 @@
 
 OmniResearch is a small Flask web app for asking a research question, displaying a grounded summary, and listing source links returned by a configured research integration.
 
-The repository does **not** include fake sources or a hidden demo provider. The app includes a real adapter for [Tavily Search](https://docs.tavily.com/), but this workspace does not currently have a Tavily key or a direct OmniRush search extension connected. Until you configure Tavily locally, the app shows a clear setup message.
+The repository does **not** include fake sources or a hidden demo provider. The app includes a real adapter for [Tavily Search](https://docs.tavily.com/). A Tavily key must be configured locally; no key is committed to the repository. Until you configure Tavily, the app shows a clear setup message.
 
 The OmniRush extension inventory was checked before implementation: it exposes Google Workspace and image-generation actions, but no search/research action. Therefore this app uses the official Tavily API only when you explicitly configure it, and does not claim that an OmniRush-native search integration is available.
 
 ## Requirements
 
 - Python 3.13 (pinned in `.python-version`)
-- Windows through the supported OmniRush terminal, or Docker Desktop
+- Python 3.13 on Linux, macOS, or Windows, or Docker Desktop
 
-## Run on Windows in OmniRush
+## Run locally
+
+### Linux or macOS
+
+From the project folder:
+
+```bash
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.lock
+.venv/bin/python app.py
+```
+
+Open http://127.0.0.1:5000 in a browser.
+
+### Windows in OmniRush
 
 From the project folder:
 
@@ -71,6 +85,14 @@ and return:
 The app only displays `http://` and `https://` source URLs returned by the provider. It creates an evidence summary only from returned source snippets/content; it does not invent unsupported claims.
 
 ## Test
+
+The repository includes one offline test command for local and CI use:
+
+```powershell
+make test
+```
+
+On Windows without `make`, run the equivalent command:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q

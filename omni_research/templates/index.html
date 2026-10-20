@@ -8,59 +8,100 @@
 </head>
 <body>
   <main class="container">
-    <header>
-      <p class="eyebrow">OmniRush Buildathon</p>
-      <h1>OmniResearch</h1>
-      <p class="intro">Ask a question and review findings from a configured research integration.</p>
+    <header class="hero">
+      <div class="brand-mark" aria-hidden="true">OR</div>
+      <div>
+        <p class="eyebrow">OmniRush Buildathon</p>
+        <h1>OmniResearch</h1>
+        <p class="intro">Ask a question and review grounded findings from a configured research integration.</p>
+      </div>
     </header>
     <form method="post" action="{{ url_for('research') }}" class="search-form" data-research-form>
-      <label for="question">Research question</label>
+      <div class="form-heading">
+        <div>
+          <p class="section-kicker">Start with a question</p>
+          <label for="question">Research question</label>
+        </div>
+        <span class="character-hint">Up to 500 characters</span>
+      </div>
       <textarea id="question" name="question" maxlength="500" rows="4" required>{{ question }}</textarea>
-      <button type="submit" data-submit-button>Research</button>
+      <div class="form-footer">
+        <span class="form-note">Results are based on returned source content.</span>
+        <button type="submit" data-submit-button>Research<span class="button-icon" aria-hidden="true">↗</span></button>
+      </div>
     </form>
-    {% if error %}<div class="message error" role="alert">{{ error }}</div>{% endif %}
+    {% if error %}<div class="message error" role="alert"><span class="message-icon" aria-hidden="true">!</span><span>{{ error }}</span></div>{% endif %}
     {% if result %}
       <section class="results" aria-labelledby="results-heading">
-        <h2 id="results-heading">Findings</h2>
-        <div class="summary-section">
+        <div class="results-header">
+          <div>
+            <p class="section-kicker">Research brief</p>
+            <h2 id="results-heading">Findings</h2>
+          </div>
+          <span class="status-pill"><span class="status-dot" aria-hidden="true"></span>Evidence collected</span>
+        </div>
+        <div class="summary-section takeaways-section">
           <h3>Key takeaways</h3>
           <ul>
             {% for takeaway in result.summary.key_takeaways %}
-              <li><span class="evidence-type">{{ takeaway.evidence_type }}</span> {{ takeaway.text }} <a href="{{ takeaway.source.url }}" rel="noreferrer noopener">[{{ takeaway.source.title }}]</a></li>
+              <li class="takeaway-item">
+                <div class="takeaway-meta">
+                  {% if takeaway.topic_context %}<span class="topic-label">{{ takeaway.topic_context }}</span>{% endif %}
+                  <span class="evidence-type">{{ takeaway.evidence_type }}</span>
+                </div>
+                <p class="takeaway-text">{{ takeaway.text }} <a class="source-link citation-link" href="{{ takeaway.source.url }}" rel="noreferrer noopener">{{ takeaway.source.title }}</a></p>
+              </li>
             {% endfor %}
             {% if not result.summary.key_takeaways %}<li>Insufficient neutral evidence was returned for a factual takeaway.</li>{% endif %}
           </ul>
         </div>
-        <div class="summary-section">
+        <div class="summary-section evidence-section">
           <h3>Supporting evidence</h3>
           {% if result.summary.supporting_evidence %}
             <ul class="evidence-list">
               {% for source in result.summary.supporting_evidence %}
-                <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}<p>{{ source.excerpt }}</p></li>
+                <li class="evidence-item">
+                  <div class="evidence-meta">
+                    {% if source.topic_label %}<span class="topic-label">{{ source.topic_label }}</span>{% endif %}
+                    <a class="source-link" href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>
+                    {% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}
+                  </div>
+                  <p>{{ source.excerpt }}</p>
+                </li>
               {% endfor %}
             </ul>
           {% else %}<p>No source snippets were returned for supporting evidence.</p>{% endif %}
         </div>
-        <div class="summary-section">
+        <div class="summary-section limitations-section">
           <h3>Limitations</h3>
           <ul>
             {% for limitation in result.summary.limitations %}<li>{{ limitation }}</li>{% endfor %}
           </ul>
         </div>
-        <h2>Sources</h2>
-        <ul class="sources">
-          {% for source in result.sources %}
-            <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}</li>
-          {% endfor %}
-        </ul>
-        <h2>News</h2>
-        {% if result.news %}
+        <div class="sources-section">
+          <div class="subsection-heading">
+            <h3>Sources</h3>
+            <span>Original links</span>
+          </div>
           <ul class="sources">
-            {% for source in result.news %}
-              <li><a href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}{% if source.snippet %}<p>{{ source.excerpt }}</p>{% endif %}</li>
+            {% for source in result.sources %}
+              <li><a class="source-link" href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}</li>
             {% endfor %}
           </ul>
-        {% else %}<p class="empty-state">No news results were returned for this question.</p>{% endif %}
+        </div>
+        <div class="sources-section news-section">
+          <div class="subsection-heading">
+            <h3>News</h3>
+            <span>Recent coverage</span>
+          </div>
+          {% if result.news %}
+            <ul class="sources">
+              {% for source in result.news %}
+                <li><a class="source-link" href="{{ source.url }}" rel="noreferrer noopener">{{ source.title }}</a>{% if source.published_date %}<small>{{ source.published_date }}{% if source.date_label %} · {{ source.date_label }}{% endif %}</small>{% endif %}{% if source.snippet %}<p>{{ source.excerpt }}</p>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% else %}<p class="empty-state">No news results were returned for this question.</p>{% endif %}
+        </div>
       </section>
     {% endif %}
   </main>
